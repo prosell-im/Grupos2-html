@@ -1,0 +1,74 @@
+# -*- mode: Perl -*-
+# biblatex.sty.ltxml: binding simplificado de biblatex para LaTeXML.
+# Convierte biblatex en una bibliografía clásica de BibTeX con estilo alpha.
+package LaTeXML::Package::Pool;
+use strict;
+use warnings;
+use LaTeXML::Package;
+
+# Ignorar todas las opciones (backend=biber, style=..., etc.)
+DeclareOption(undef, sub { return; });
+ProcessOptions();
+
+# --- Fuentes bibliográficas ---
+my @BIBS;
+DefPrimitive('\addbibresource[]{}', sub {
+  my ($stomach, $opt, $file) = @_;
+  my $n = ToString($file);
+  $n =~ s/\.bib$//;
+  push @BIBS, $n;
+  return;
+});
+
+# --- Impresión de la bibliografía ---
+DefMacro('\printbibliography[]', sub {
+  Tokenize('\bibliographystyle{alpha}\bibliography{' . join(',', @BIBS) . '}');
+});
+
+# --- Comandos de cita ---
+# En biblatex: un opcional = nota final; dos opcionales = nota inicial y final.
+sub cita {
+  my ($gullet, $pre, $post, $key) = @_;
+  my $k = ToString($key);
+  my $nota = defined $post ? ToString($post) : '';
+  $nota = ToString($pre) if $nota eq '' && defined $pre;
+  return Tokenize($nota ne '' ? "\\cite[$nota]{$k}" : "\\cite{$k}");
+}
+DefMacro('\autocite[][]{}',  \&cita);
+DefMacro('\parencite[][]{}', \&cita);
+DefMacro('\textcite[][]{}',  \&cita);
+DefMacro('\footcite[][]{}',  \&cita);
+
+# Comandos de biblatex que no tienen efecto en la conversión
+DefMacro('\printbibheading[]', '');
+DefMacro('\defbibheading{}{}', '');
+
+# \nocite{*}: expandir a todas las claves de los .bib declarados
+Let('\lxorignocite', '\nocite');
+DefMacro('\nocite{}', sub {
+  my ($gullet, $keys) = @_;
+  my $k = ToString($keys);
+  if ($k =~ /^\s*\*\s*$/) {
+    my @all;
+    my @dirs = ('.', @{ LookupValue('SEARCHPATHS') || [] });
+    foreach my $b (@BIBS) {
+      foreach my $d (@dirs) {
+        my $f = "$d/$b.bib";
+        next unless -e $f;
+        open(my $fh, '<', $f) or next;
+        while (my $line = <$fh>) {
+          if ($line =~ /^\s*@(\w+)\s*\{\s*([^,\s]+)\s*,/
+              && lc($1) !~ /^(comment|string|preamble)$/) {
+            push @all, $2;
+          }
+        }
+        close($fh);
+        last;
+      }
+    }
+    $k = join(',', @all);
+  }
+  return Tokenize('\lxorignocite{' . $k . '}');
+});
+
+1;

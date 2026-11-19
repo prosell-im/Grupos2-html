@@ -1,0 +1,61 @@
+# -*- mode: Perl -*-
+package LaTeXML::Package::Pool;
+use strict;
+use warnings;
+use utf8;
+use LaTeXML::Package;
+
+# Nombres por idioma (ampliar según los idiomas que use la editorial)
+my %NOMBRES = (
+  spanish => {
+    '\contentsname' => 'Índice general', '\listfigurename' => 'Índice de figuras',
+    '\listtablename' => 'Índice de tablas', '\chaptername' => 'Capítulo',
+    '\appendixname' => 'Apéndice', '\partname' => 'Parte',
+    '\bibname' => 'Bibliografía', '\refname' => 'Referencias',
+    '\indexname' => 'Índice alfabético', '\figurename' => 'Figura',
+    '\tablename' => 'Tabla', '\abstractname' => 'Resumen',
+    '\proofname' => 'Demostración',
+  },
+  english => {
+    '\contentsname' => 'Contents', '\chaptername' => 'Chapter',
+    '\proofname' => 'Proof',    # etc.
+  },
+);
+
+my $principal = 'english';
+DeclareOption(undef, sub {
+  my $opt = ToString(Expand(T_CS('\CurrentOption')));
+  $principal = $opt if $NOMBRES{$opt};   # la última opción reconocida manda
+  return;                                # primitiva: no debe devolver valores
+});
+ProcessOptions();
+
+sub aplicar_idioma {
+  my ($lang) = @_;
+  my $t = $NOMBRES{$lang} or return;
+  DefMacroI(T_CS($_), undef, $$t{$_}) for keys %$t;
+}
+aplicar_idioma($principal);
+
+# Comandos de babel que deben existir pero no hacer nada en XML/HTML
+DefMacro('\selectlanguage{}',        sub { aplicar_idioma(ToString($_[1])); () });
+DefMacro('\foreignlanguage{}{}',     '#2');
+DefMacro('\otherlanguage{}',         '');
+DefMacro('\endotherlanguage',        '');
+DefMacro('\languagename',            $principal);
+DefMacro('\useshorthands{}',         '');
+DefMacro('\languageshorthands{}',    '');
+DefMacro('\shorthandon{}',           '');
+DefMacro('\shorthandoff{}',          '');
+DefMacro('\babelprovide[]{}',        '');
+
+# Reaplicar los nombres del idioma principal al empezar el documento,
+# por si otro paquete (p. ej. amsthm) los ha pisado después de cargar babel.
+{
+  my $t = $NOMBRES{$principal};
+  if ($t) {
+    AtBeginDocument(Tokenize(join('', map { '\def' . $_ . '{' . $$t{$_} . '}' } keys %$t)));
+  }
+}
+
+1;
