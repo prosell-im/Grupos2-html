@@ -15,6 +15,17 @@ my %NOMBRES = (
     '\indexname' => 'Índice alfabético', '\figurename' => 'Figura',
     '\tablename' => 'Tabla', '\abstractname' => 'Resumen',
     '\proofname' => 'Demostración',
+    #Lo de abajo es para traducir la parte de las referencias en la bibliografia
+    '\partautorefname' => 'Parte', '\chapterautorefname' => 'Capítulo',
+    '\appendixautorefname' => 'Apéndice', '\sectionautorefname' => 'Sección',
+    '\subsectionautorefname' => 'Subsección',
+    '\subsubsectionautorefname' => 'Subsubsección',
+    '\paragraphautorefname' => 'Párrafo', '\subparagraphautorefname' => 'Subpárrafo',
+    '\figureautorefname' => 'Figura', '\tableautorefname' => 'Tabla',
+    '\equationautorefname' => 'Ecuación', '\footnoteautorefname' => 'Nota al pie',
+    '\itemautorefname' => 'Elemento', '\pageautorefname' => 'Página',
+    #Cambiar el nombre si se prefiere, era para lo de item en referencias
+    '\itemtyperefname' => 'Elemento', '\enumtyperefname' => 'Elemento',
   },
   english => {
     '\contentsname' => 'Contents', '\chaptername' => 'Chapter',
@@ -56,6 +67,22 @@ DefMacro('\babelprovide[]{}',        '');
   if ($t) {
     AtBeginDocument(Tokenize(join('', map { '\def' . $_ . '{' . $$t{$_} . '}' } keys %$t)));
   }
+}
+
+#Para cambiar la fecha a de hoy a espanol
+DefMacro('\today', sub {
+  my @t = localtime();
+  my @meses = qw(enero febrero marzo abril mayo junio julio
+                 agosto septiembre octubre noviembre diciembre);
+  return Tokenize("$t[3] de $meses[$t[4]] de " . ($t[5] + 1900)); });
+
+
+#Esto se puede borrar no funciono #RawTeX('\makeatletter\def\@seccntformat#1{\csname the#1\endcsname.\quad}\makeatother');
+
+#Intento para poner el puntito en las subsecciones
+foreach my $level (qw(section subsection subsubsection)) {
+  DefMacroI('\format@title@' . $level, '{}',
+    '\lx@tag[][. ]{\lx@fnum@@{' . $level . '}}#1');
 }
 
 1;

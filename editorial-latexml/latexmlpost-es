@@ -1,0 +1,24 @@
+#!/bin/bash
+# Uso: ./latexmlpost-es [opciones de latexmlpost]
+# Ejemplo: ./latexmlpost-es --destination=main.html --bibliography=refs.xml main.xml
+set -e
+DIR="$(cd "$(dirname "$0")" && pwd)"
+OUT="$DIR/.parche"
+
+LTX="$(command -v latexmlpost)" || { echo "No encuentro latexmlpost"; exit 1; }
+PERL="$(head -1 "$LTX" | sed 's/^#!//')"
+ORIG="$($PERL -MLaTeXML -e 'my $f=$INC{"LaTeXML.pm"}; $f=~s/\.pm$//; print "$f/Post/MakeBibliography.pm"')"
+[ -f "$ORIG" ] || { echo "No encuentro $ORIG"; exit 1; }
+
+mkdir -p "$OUT/LaTeXML/Post"
+F="$OUT/LaTeXML/Post/MakeBibliography.pm"
+rm -f "$F"; cp "$ORIG" "$F"; chmod u+w "$F"
+
+sed -i.bak "s/' and '/' y '/g; s/'and '/'y '/g; s/\"Cited by: \"/\"Citado en: \"/" "$F"
+perl -0pi -e 's/push\(\@stuff, \$sep\);\n\s*push\(\@stuff, \x27y \x27\) if !\$etal && !\@names; \}/if (!\$etal && !\@names) { push(\@stuff, \x27 y \x27); }\n      else { push(\@stuff, \$sep); } }/' "$F"
+perl -0pi -e 's/(push\(\@fnames, \$n->childNodes, \x27, \x27\); \})/$1\n    pop(\@fnames);/' "$F"
+
+grep -q "Citado en" "$F" && grep -q "pop(@fnames)" "$F" && grep -q "' y '" "$F" || \
+  echo "Aviso: los cambios no se aplicaron por completo; tu versión de LaTeXML puede ser distinta." >&2
+
+PERL5LIB="$OUT${PERL5LIB:+:$PERL5LIB}" "$LTX" "$@"
